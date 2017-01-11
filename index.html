@@ -37,15 +37,17 @@
 		  		}
 
 
-				function buttonPressDetected = function() {
+				function buttonPressDetected() {
 					$("#activityModal").modal("show");
 				}
+				}
 
-		  		function capSenseDetected = function() {
+		  		function capSenseDetected() {
 		  			$("#activityModal").modal("show");
 		  		}
+		  		}
 
-		  		function buttonHoldDetected = function() {
+		  		function buttonHoldDetected() {
 					$("#disconnectAlert").removeClass("hidden");
 		  			Puck.resetPuck('LED1');
 		  		}
