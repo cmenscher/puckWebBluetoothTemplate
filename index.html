@@ -12,63 +12,79 @@
 	    <title>Puck.js Web App</title>
 
 	    <script>
-			var Puck = (function() {
+			var App = (function() {
 			  if (typeof navigator == "undefined") return; // not running in a web browser
 
 			  	function puckResponse(data) {
 					// console.log("Received: " + JSON.stringify(v));
-					let output = document.getElementById('status');
-					let state = data;
+					var output = document.getElementById('status');
+					var state = data;
 
 					//for some reason the entire word isn't being seen a "true" so just looking for "t" and "f" as first char
-					if(Puck.ready) {
-						if(state.indexOf("$true") === 0) {
-							Puck.buttonPressDetected();
-						} else if(state.indexOf("$hold") === 0) {
-							Puck.buttonHoldDetected();
-						} else if(state.indexOf("$reset") === 0) {
-							Puck.resetPuck();
-						} else if(state.indexOf("$false") === 0) {
-							// do nothing
-						} else {
-							console.error("UNEXPECTED RESPONSE FROM PUCK: \"" + state + "\"");
+					if(App.ready) {
+						switch($.trim(state)) {
+							case "$button":
+								App.buttonPressDetected();
+								break;
+							case "$capsense":
+								App.capSenseDetected();
+								break;
+							case "$hold":
+								App.resetPuck();					
+								break;
+							case "$reset":
+								App.resetDetected();
+								break;
+							case "$null":
+								// do nothing
+								break;
+							default:
+								console.error("UNEXPECTED RESPONSE FROM PUCK: \"" + state + "\"");
 						}
 					}
 		  		}
 
 
 				function buttonPressDetected() {
-					$("#activityModal").modal("show");
+					$("#buttonModal").modal("show");
 				} 
 
 		  		function capSenseDetected() {
-		  			$("#activityModal").modal("show");
+		  			$("#capSenseModal").modal("show");
 		  		}
 
-		  		function buttonHoldDetected() {
+		  		function resetDetected() {
+					$("#puckNotFoundAlert").addClass("hidden");
+					$("#buttonModal").modal("hide");
 					$("#disconnectAlert").removeClass("hidden");
-		  			Puck.resetPuck('LED1');
 		  		}
 
 		  		function resetPuck(resetLED) {
-		  			Puck.ready = false;
+		  			App.ready = false;
+		  			
 		  			cmdOn = resetLED + ".write(1);";
-		  			cmdOff ="LED1.write(0);LED2.write(0);LED3.write(0);"; //need to turn off all because if the button is held down too long the "on" LED will remain lit
-		  			sendCmd = "clearInterval();Bluetooth.println('$reset');"+cmdOn+"setTimeout('"+cmdOff+";reset();', 1000);"
+
+		  			//need to turn off all because if the button is held down too long the "on" LED will remain lit
+		  			cmdOff ="LED1.write(0);LED2.write(0);LED3.write(0);";
+		  			sendCmd = "clearInterval();Bluetooth.println('$reset');"+cmdOn+"setTimeout('"+cmdOff+"reset();', 1000);"
 		  			console.log("PUCK RESET!");
 		  			return sendCmd;
 		  		}
 
 
-				function startPuck(callback) {
-					console.log("Starting puck...");
+				function start(callback) {
+					console.log("Starting app...");
 
 					Puck.connect(function(c) {
 						if (!c) {
+							console.error("Connection to Puck.js failed!");
+							console.error(c);
 							$("#puckNotFoundAlert").removeClass("hidden");
 							$("#disconnectAlert").addClass("hidden");
 							return;
 						} else {
+							console.log("Puck.js connected...");
+							console.warn("Waiting for Puck reset and command loop execution...");
 							$("#go, #puckNotFoundAlert, #disconnectAlert").addClass("hidden"); 
 						}
 
@@ -88,19 +104,22 @@
 						  }
 						});
 
-						// First, reset Puck.js and wait 1500ms
+						
 						connection.write(resetPuck("LED2")+"\n", function() {
 							connection.write("NRF.on('disconnect', function() { reset(); });"); //not sure this works but hopefully resets the Puck if BLE detects a radio disconnect
 
-							/*
-							The cmd variable contains the code to tell the Puck to run a loop every 100ms and respond to the following:
-							1. Single press of the button returns "$true", which prompts puckResponse() to call buttonPressDetected()
-							2. Capacitive sense > capSenseThreshold returns "$true", which prompts puckResponse() to call buttonPressDetected()
-							3. Button hold calls injects the output of resetPuck() to execute on the puck itself (i.e. clearInterval())
-							*/
-							let cmd = "var cnt = 0;setInterval(function(){var notify='false'; var btn=BTN.read();var cap=Puck.capSense(D12,D11); if(btn) { LED1.write(1); notify='true'; cnt++; if(cnt > 25) { cnt=0;LED1.write(0);"+Puck.resetPuck('LED3')+"} } else if((cap > "+Puck.capSenseThreshold+")) { LED1.write(1); notify='true'; } else { LED1.write(0);};Bluetooth.println('$'+notify);},100);\n";
-							setTimeout(function() { //start the Puck cmd after 1.5sec to allow for startup after init
-								connection.write(cmd, function() { setTimeout("Puck.ready = true", 1500);});
+							// 	The cmd variable contains the code to tell the Puck to run a loop every 100ms and respond to the following:
+							// 	1. Single press of the button returns "$true", which prompts puckResponse() to call buttonPressDetected()
+							// 	2. Capacitive sense > capSenseThreshold returns "$true", which prompts puckResponse() to call buttonPressDetected()
+							// 	3. Button hold injects the output of App.resetPuck() to execute on the puck itself and returns "$hold", which prompts puckResponse() to call holdDetected()
+							//
+							// Incidentally, a reset returns "$reset", which calls App.resetDetect()
+
+							let cmd = "var cnt = 0;setInterval(function(){var notify='null'; var btn=BTN.read();var cap=Puck.capSense(D12,D11); if(btn) { LED1.write(1); notify='button'; cnt++; if(cnt > 25) { cnt=0;LED1.write(0);notify='hold';"+App.resetPuck('LED3')+"} } else if((cap > "+App.capSenseThreshold+")) { LED1.write(1); notify='capsense'; } else { LED1.write(0);};Bluetooth.println('$'+notify);},100);\n";
+							
+
+							setTimeout(function() { //start the Puck cmd after 2sec to allow for startup after reset
+								connection.write(cmd, function() { setTimeout("App.ready = true", App.commandDelay);});
 								console.log("READY.......FIGHT!");
 							}, 1500);
 						});
@@ -109,37 +128,39 @@
 
 		    	var init = function() {
 		    		console.log("Initializing...");
+		    		Puck.debug = App.debug;
 		    		var button = document.getElementById("go");
 		    		$("#go, #tryAgain, #reconnect").on("click", function() {
-		    			startPuck();
+		    			start();
 		    		});
+		    		console.log("Ready to connect to Puck.js");
 				}
 
-				var puck = {
-					debug: false,
+				var app = {
+					debug: false, //enables verbose on Puck.js library
 
 					ready: false,
 
-					connected: false,
+					commandDelay: 6000, //ms to wait for Bluetooth command loop to be sent and executed
 
-					connection: null,
+					init: init,
+
+					start: start,
 
 					buttonPressDetected: buttonPressDetected,
-
-					buttonHoldDetected: buttonHoldDetected,
 
 					capSenseThreshold: 7000, //arbitrary threshold value, might need to tweak
 
 					capSenseDetected: capSenseDetected,
 
-					init: init,
+					resetDetected: resetDetected,
 
-					startPuck: startPuck,
+					resetPuck: resetPuck,
 					
-					puckResponse: puckResponse,
+					puckResponse: puckResponse
 				}
 
-				return puck;
+				return app;
 			})();
 	    </script>
 	</head>
@@ -168,13 +189,13 @@
 
 		<div id="puckApp" class="container container-fluid">
 			<div class="page init"><div>
-				<div id="puckNotFoundAlert" class="alert alert-danger hidden" role="alert"><strong>Puck not found!</strong><p>A puck.js could not be found. Reset it or check the battery and try again...</p><button type="button" id="reconnect" class="btn btn-danger">Try again</button></div>
+				<div id="puckNotFoundAlert" class="alert alert-danger hidden" role="alert"><strong>Puck not found!</strong><p>A Puck.js could not be found. Reset it or check the battery and try again...</p><button type="button" id="reconnect" class="btn btn-danger">Try again</button></div>
 				<div id="disconnectAlert" class="alert alert-danger hidden" role="alert"><strong>Puck reset!</strong> Awaiting connection...<p><button type="button" id="tryAgain" class="btn btn-danger">Reconnect Puck</button></p></div>
 				<button type="button" id="go" data-loading-text="Pairing..." class="btn btn-primary" autocomplete="off">Start App</button><p>Click the "Start App" button to connect to your Puck.js and begin receiving interaction responses.
 			</div>
 
 
-			<div id="activityModal" class="modal fade" tabindex="-1" role="dialog">
+			<div id="buttonModal" class="modal fade" tabindex="-1" role="dialog">
 			  <div class="modal-dialog" role="document">
 			    <div class="modal-content">
 			      <div class="modal-header">
@@ -192,15 +213,31 @@
 			</div>
 		</div>
 
+		<div id="capSenseModal" class="modal fade" tabindex="-1" role="dialog">
+		  <div class="modal-dialog" role="document">
+		    <div class="modal-content">
+		      <div class="modal-header">
+		        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+		        <h4 class="modal-title">Action detected!</h4>
+		      </div>
+		      <div class="modal-body alert alert-danger">
+		        <p>Puck.js capsense triggered!</p>
+		      </div>
+		      <div class="modal-footer">
+		        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+		      </div>
+		    </div>
+		  </div>
+		</div>
+	</div>
 
 	    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
 	    <script src="js/bootstrap.min.js"></script>
 	    <script src="https://www.puck-js.com/puck.js"></script>
 		<script>
 	    	$(document).ready(function() {
-				puck.init();
+				App.init();
 	    	});
-
 		</script>
 
 	</body>
