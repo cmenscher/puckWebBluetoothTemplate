@@ -6,4 +6,4 @@ This sample uses the following external libraries:
 2. jQuery 1.12.4
 3. The Puck.js Web Bluetooth library
 
-The application incorporates the capacitive sense capability, but you obviously don't have to use it.  Have fun!
+The application incorporates the capacitive sense capability, but you obviously don't have to use it.  I recommend opening the Espruino Web IDE (https://www.espruino.com/ide/) in a separate tab/window to watch the output of the Puck.   Have fun!
