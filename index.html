@@ -85,7 +85,8 @@
 						} else {
 							console.log("Puck.js connected...");
 							console.warn("Waiting for Puck reset and command loop execution...");
-							$("#go, #puckNotFoundAlert, #disconnectAlert").addClass("hidden"); 
+							$("#go, #puckNotFoundAlert, #disconnectAlert").addClass("hidden");
+							$("#baseContent").html("Puck.js is starting...please wait.");
 						}
 
 						connection = c;
@@ -121,6 +122,7 @@
 							setTimeout(function() { //start the Puck cmd after 2sec to allow for startup after reset
 								connection.write(cmd, function() { setTimeout("App.ready = true", App.commandDelay);});
 								console.log("READY.......FIGHT!");
+								$("#baseContent").html("Your Puck.js is connected and the app is listening.");
 							}, 1500);
 						});
 					});
@@ -191,7 +193,7 @@
 			<div class="page init"><div>
 				<div id="puckNotFoundAlert" class="alert alert-danger hidden" role="alert"><strong>Puck not found!</strong><p>A Puck.js could not be found. Reset it or check the battery and try again...</p><button type="button" id="reconnect" class="btn btn-danger">Try again</button></div>
 				<div id="disconnectAlert" class="alert alert-danger hidden" role="alert"><strong>Puck reset!</strong> Awaiting connection...<p><button type="button" id="tryAgain" class="btn btn-danger">Reconnect Puck</button></p></div>
-				<button type="button" id="go" data-loading-text="Pairing..." class="btn btn-primary" autocomplete="off">Start App</button><p>Click the "Start App" button to connect to your Puck.js and begin receiving interaction responses.
+				<button type="button" id="go" data-loading-text="Pairing..." class="btn btn-primary" autocomplete="off">Start App</button><p id="baseContent">Click the "Start App" button to connect to your Puck.js and begin receiving interaction responses.</p>
 			</div>
 
 
